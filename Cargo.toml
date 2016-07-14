@@ -1,0 +1,19 @@
+[package]
+name = "chit8"
+description = "A toy CHIP-8 emulator and disassembler"
+version = "0.1.0"
+authors = ["Toni Sallanmaa <tombad@gmail.com>"]
+publish = false
+
+[dependencies]
+
+[lib]
+name = "chip8"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+debug = false
