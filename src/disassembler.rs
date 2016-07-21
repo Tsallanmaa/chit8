@@ -4,7 +4,7 @@
 //! and the disassembler. The disassembler contains definitions for all these opcodes that provide a 
 //! string representation of the opcode and it's parameters. 
 
-use ram::Ram;
+use ram::Memory;
 
 /// Macro to decode opcode and call the corresponsing function on the emulated CPU or disassembler
 /// with the correct parameters parsed from the opcode.
@@ -60,7 +60,7 @@ pub struct Disassembler<'a>
 	/// Current program counter. Initialized to 0x200.
 	pub pc: u16,
 	/// Emulated RAM of the CHIP-8
-	pub ram: &'a mut Ram
+	pub ram: &'a mut Memory
 }
 
 impl<'a> Disassembler<'a> {

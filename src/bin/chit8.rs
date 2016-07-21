@@ -47,5 +47,5 @@ pub fn main() {
 	let rom = match Rom::new(&mut file, opts.rom_path.file_name().unwrap_or_default().to_str().unwrap_or_default().to_owned()) { Ok(rom) => rom, Err(err) => { println!("ROM loading error: {}", err.to_string()); return; }};
 
 	println!("ROM loaded: {}", rom);
-    chip8::disasm(rom);
+    chip8::emulate(rom);
 }

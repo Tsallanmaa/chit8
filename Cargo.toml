@@ -6,6 +6,7 @@ authors = ["Toni Sallanmaa <tombad@gmail.com>"]
 publish = false
 
 [dependencies]
+rand = "0.3"
 
 [lib]
 name = "chip8"
