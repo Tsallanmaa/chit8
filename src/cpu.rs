@@ -2,12 +2,14 @@
 
 use ram::*;
 use input::Input;
+use display::Display;
 
 use std::fmt;
 use rand::{ThreadRng, thread_rng, Rng};
 
 /// Emulated CPU of the CHIP-8
-pub struct Cpu<'a, I: 'a + Input> {
+#[allow(dead_code)] // TODO: Remove when this is actually used
+pub struct Cpu<'a, I: 'a + Input, D: 'a + Display> {
 	/// Main RAM (4 kilobytes)
 	ram: &'a mut Memory,
 	
@@ -35,10 +37,13 @@ pub struct Cpu<'a, I: 'a + Input> {
 	rng: ThreadRng,
 
 	/// Input device
-	input: &'a I
+	input: &'a I,
+
+	/// Display for the CPU. Used for VRAM.
+	display: &'a D
 }
 
-impl<'a, I: Input> Cpu<'a, I>
+impl<'a, I: Input, D: Display> Cpu<'a, I, D>
 {
 	fn next_opcode(&mut self) -> u16
 	{
@@ -404,14 +409,14 @@ impl<'a, I: Input> Cpu<'a, I>
 		self.update_timers();
 	}
 
-	pub fn new<'b>(ram: &'b mut Memory, input: &'b I) -> Cpu<'b, I>
+	pub fn new<'b>(ram: &'b mut Memory, input: &'b I, display: &'b D) -> Cpu<'b, I, D>
 	{
 		let rng = thread_rng();
-		Cpu { ram: ram, pc: 0x200, v: [0;16], i:0, stack: [0;16], dt: 0, st: 0, rng: rng, input: input}
+		Cpu { ram: ram, pc: 0x200, v: [0;16], i:0, stack: [0;16], dt: 0, st: 0, rng: rng, input: input, display: display}
 	}
 }
 
-impl<'a, I: Input> fmt::Display for Cpu<'a, I>
+impl<'a, I: Input, D: Display> fmt::Display for Cpu<'a, I, D>
 {
 	/// Implement fancy display formatting for the CPU and it's state
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -454,13 +459,29 @@ impl<'a> Input for MockInput<'a>
 	fn get_key_states(&self) -> [bool;16] { self.keys.clone() }
 }
 
+#[cfg(test)]
+struct MockDisplay {
+}
+
+#[cfg(test)]
+impl MockDisplay {
+	fn new() -> MockDisplay { MockDisplay { } }
+}
+
+#[cfg(test)]
+impl Display for MockDisplay
+{
+
+}
+
 #[test]
 fn test_ret()
 {
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 
 	cpu.pc = 0x200;
 	cpu.stack[0] = 0xAFC;
@@ -488,7 +509,8 @@ fn test_ret_panics_with_empty_stack()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 
 	cpu.ret();
 }
@@ -499,7 +521,8 @@ fn test_jp()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.pc = 0x0;
 	cpu.jp(0xABC);
@@ -515,7 +538,8 @@ fn test_call()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 
 	cpu.pc = 0x200;
 	
@@ -544,7 +568,8 @@ fn test_call_overflows()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 
 	for _ in  0..17 {
 		cpu.call(0xFFF);
@@ -557,7 +582,8 @@ fn test_se()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0] = 0xAF;
 	cpu.pc = 0x0;
@@ -574,7 +600,8 @@ fn test_sne()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0] = 0xAF;
 	cpu.pc = 0x0;
@@ -591,7 +618,8 @@ fn test_se_reg()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0] = 0xAF;
 	cpu.v[0xA] = 0xFF;
@@ -614,7 +642,8 @@ fn test_add_byte()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.add_byte(0xA, 0xFF);
 	assert!(cpu.v[0xA] == 0xFF);
@@ -633,7 +662,8 @@ fn test_ld()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xF] = 0x34;
 	cpu.ld(0xA, 0xF);
@@ -646,7 +676,8 @@ fn test_ldx()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.ldx(0xA, 0xFF);
 	assert!(cpu.v[0xA] == 0xFF);
@@ -666,7 +697,8 @@ fn test_or()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xC;
 	cpu.v[0xB] = 0x3;
@@ -681,7 +713,8 @@ fn test_and()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xC;
 	cpu.v[0xB] = 0x3;
@@ -696,7 +729,8 @@ fn test_xor()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xC;
 	cpu.v[0xB] = 0x3;
@@ -711,7 +745,8 @@ fn test_add_reg()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xC;
 	cpu.v[0xB] = 0x3;
@@ -728,7 +763,8 @@ fn test_add_reg_overflows()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xFA;
 	cpu.v[0xB] = 0xAF;
@@ -745,7 +781,8 @@ fn test_sub()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xC;
 	cpu.v[0xB] = 0x3;
@@ -762,7 +799,8 @@ fn test_sub_borrow()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xAF;
 	cpu.v[0xB] = 0xFA;
@@ -779,7 +817,8 @@ fn test_shr()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xFF;
 	cpu.v[0xB] = 0x00;
@@ -806,7 +845,8 @@ fn test_subn()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0x3;
 	cpu.v[0xB] = 0xC;
@@ -823,7 +863,8 @@ fn test_subn_borrow()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xFA;
 	cpu.v[0xB] = 0xAF;
@@ -840,7 +881,8 @@ fn test_shl()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xFF;
 	cpu.v[0xB] = 0x00;
@@ -867,7 +909,8 @@ fn test_sne_reg()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 
 	cpu.pc = 0x0;
 	cpu.v[0xA] = 0x3;
@@ -890,7 +933,8 @@ fn test_ldi()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 
 	cpu.ldi(0xFFF);
 	assert!(cpu.i == 0xFFF);
@@ -905,7 +949,8 @@ fn test_jp_v0()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 
 	cpu.v[0] = 0xAC;
 	cpu.jp_v0(0x21);
@@ -918,7 +963,8 @@ fn test_rnd()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xA] = 0xFF;
 	cpu.v[0x3] = 0xFF;
@@ -943,7 +989,8 @@ fn test_skp()
 	keys[0xA] = true;
 
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.pc = 0x0;
 	cpu.v[0x0] = 3;
@@ -969,7 +1016,8 @@ fn test_sknp()
 	keys[0xA] = true;
 
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.pc = 0x0;
 	cpu.v[0x0] = 3;
@@ -992,7 +1040,8 @@ fn test_dt_into_vx()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.dt = 0xFF;
 	cpu.ld_dt_into_vx(0);
@@ -1013,7 +1062,8 @@ fn test_ld_k_into_vx()
 	keys[0xA] = true;
 	keys[0xB] = true;
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0xC] = 0xF;
 	cpu.ld_k_into_vx(0xC);
@@ -1026,7 +1076,8 @@ fn test_ld_vx_into_dt()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0] = 3;
 	cpu.ld_vx_into_dt(0);
@@ -1045,7 +1096,8 @@ fn test_ld_vx_into_st()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.v[0] = 3;
 	cpu.ld_vx_into_st(0);
@@ -1064,7 +1116,8 @@ fn test_add_vx()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.i = 0x2;
 	cpu.v[0] = 0x3;
@@ -1084,7 +1137,8 @@ fn test_ld_vx_digit_into_f()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.i = 0x0;
 	cpu.v[0] = 3;
@@ -1105,7 +1159,8 @@ fn test_ld_vx_into_bcd()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	cpu.i = 0x0;
 	cpu.v[0] = 123;
@@ -1124,7 +1179,8 @@ fn test_ld_vx_into_bc_with_smaller_numbers()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	// Put some 0xFF:s into the memory to see writes
 	cpu.ram.sb(cpu.i, 0xFF);
@@ -1148,7 +1204,8 @@ fn test_ld_v0_to_vx_into_i()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	for i in 0..0x10 { cpu.v[i as usize] = i+1; }
 
@@ -1168,7 +1225,8 @@ fn test_ld_v0_to_vx_into_i_terminates_properly()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	for i in 0..0x10 { cpu.v[i as usize] = i+1; }
 
@@ -1188,7 +1246,8 @@ fn test_ld_i_into_v0_to_vx()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	for i in 0..0xFF { cpu.ram.sb(i, i as u8); }
 
@@ -1209,7 +1268,8 @@ fn test_ld_i_into_v0_to_vx_terminates_properly()
 	let mut ram = &mut Ram::new();
 	let keys = &mut [false;16];
 	let kb = & MockInput::new(keys);
-	let mut cpu = Cpu::new(ram, kb);
+	let display = & MockDisplay::new();
+	let mut cpu = Cpu::new(ram, kb, display);
 	
 	for i in 0..0xFF { cpu.ram.sb(i, i as u8); }
 
